@@ -57,7 +57,7 @@ fn app() -> Router {
 }
 
 async fn handler() -> &'static str {
-    "Let's Get Rusty!"
+    "TOHLE JE FRONTEND"
 }
 
 async fn get_users(state: Extension<Pool<Postgres>>) -> Json<Vec<User>> {
