@@ -54,6 +54,7 @@ fn app() -> Router {
         .route("/user", post(create_user))
         .route("/users", get(get_users))
         .route("/user/:id", delete(delete_user))
+        .route("/user/:id/update", put(update_user))
 }
 
 async fn handler() -> &'static str {
@@ -106,6 +107,17 @@ pub async fn delete_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i
     let Extension(pool) = state;
 
     sqlx::query!("DELETE FROM users WHERE id = $1", user_id)
+        .execute(&pool)
+        .await
+        .expect("Failed to delete user");
+
+    StatusCode::NO_CONTENT
+}
+
+pub async fn update_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i32>) -> StatusCode {
+    let Extension(pool) = state;
+
+    sqlx::query!("UPDATE FROM users WHERE id = $1", user_id)
         .execute(&pool)
         .await
         .expect("Failed to delete user");
