@@ -2,11 +2,12 @@ use axum::{
     extract::{self, Path},
     http::StatusCode,
     routing::{delete, get, post, put},
-    Extension, Json, Router,
+    handler::Handler,
+    extract::Json,
+    Extension, Router,
+    response::{IntoResponse, Html},
 };
-
 use dotenvy::dotenv;
-
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
@@ -58,9 +59,12 @@ fn app() -> Router {
         .route("/user/:id/update", put(update_user))
 }
 
-async fn handler() -> &'static str {
-    "TOHLE JE FRONTEND"
-}
+fn new_handler(arg: &str) {
+    async fn custom_handler() -> impl IntoResponse {
+        Html(source(HandlerConfig::new(arg)))
+    }
+  }
+  
 
 async fn get_users(state: Extension<Pool<Postgres>>) -> Json<Vec<User>> {
     let Extension(pool) = state;
@@ -118,20 +122,26 @@ pub async fn delete_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i
     StatusCode::NO_CONTENT
 }
 
-pub async fn update_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i32>,) -> StatusCode {
+pub async fn update_user(
+    state: Extension<Pool<Postgres>>,
+    Path(user_id): Path<i32>,
+) -> StatusCode {
     let Extension(pool) = state;
 
     sqlx::query!(
-        "UPDATE FROM users (username, name, email) VALUES ($2, $3, $4) RETURNING id, username, name, email WHERE id = $1",
+        "UPDATE users
+        SET username = $2, name = $3, email = $4
+        WHERE id = $1
+        RETURNING id, username, name, email;",
         user_id,
         user.username,
         user.name,
         user.email
     )
-        .execute(&pool)
-        .await
-        .expect("Failed to update user");
-    
+    .execute(&pool)
+    .await
+    .expect("Failed to update user");
+
     StatusCode::NO_CONTENT
 }
 
