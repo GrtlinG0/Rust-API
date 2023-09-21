@@ -1,7 +1,7 @@
 use axum::{
     extract::{self, Path},
     http::StatusCode,
-    routing::{delete, get, post},
+    routing::{delete, get, post, put},
     Extension, Json, Router,
 };
 
@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
 pub struct User {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<i32>,
+    pub username: String,
     pub name: String,
     pub email: String,
 }
@@ -73,6 +74,7 @@ async fn get_users(state: Extension<Pool<Postgres>>) -> Json<Vec<User>> {
         .iter()
         .map(|r| User {
             id: Some(r.id),
+            username: r.username.to_string(),
             name: r.name.to_string(),
             email: r.email.clone(),
         })
@@ -88,7 +90,8 @@ pub async fn create_user(
     let Extension(pool) = state;
 
     let row = sqlx::query!(
-        "INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name, email",
+        "INSERT INTO users (username, name, email) VALUES ($1, $2, $3) RETURNING id, username, name, email",
+        user.username,
         user.name,
         user.email
     )
@@ -98,6 +101,7 @@ pub async fn create_user(
 
     Json(User {
         id: Some(row.id),
+        username: row.username,
         name: row.name,
         email: row.email,
     })
@@ -114,14 +118,20 @@ pub async fn delete_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i
     StatusCode::NO_CONTENT
 }
 
-pub async fn update_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i32>) -> StatusCode {
+pub async fn update_user(state: Extension<Pool<Postgres>>, Path(user_id): Path<i32>,) -> StatusCode {
     let Extension(pool) = state;
 
-    sqlx::query!("UPDATE FROM users WHERE id = $1", user_id)
+    sqlx::query!(
+        "UPDATE FROM users (username, name, email) VALUES ($2, $3, $4) RETURNING id, username, name, email WHERE id = $1",
+        user_id,
+        user.username,
+        user.name,
+        user.email
+    )
         .execute(&pool)
         .await
-        .expect("Failed to delete user");
-
+        .expect("Failed to update user");
+    
     StatusCode::NO_CONTENT
 }
 
@@ -148,6 +158,6 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
-        assert_eq!(&body[..], b"Let's Get Rusty!");
+        assert_eq!(&body[..], b"TOHLE JE FRONTEND");
     }
 }
